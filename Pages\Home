@@ -1,0 +1,124 @@
+import React, { useEffect, useState } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Music2, BookOpen, Waves, Target, PlayCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '../utils';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const iconMap = {
+  Music2,
+  BookOpen,
+  Waves,
+  Target,
+  PlayCircle
+};
+
+export default function Home() {
+  const [user, setUser] = useState(null);
+  
+  useEffect(() => {
+    window.location.href = createPageUrl('Feed');
+  }, []);
+
+  useEffect(() => {
+    base44.auth.me()
+      .then(setUser)
+      .catch(() => base44.auth.redirectToLogin());
+  }, []);
+
+  const { data: modules = [], isLoading } = useQuery({
+    queryKey: ['modules'],
+    queryFn: () => base44.entities.Module.list('order'),
+  });
+
+  const { data: allLessons = [] } = useQuery({
+    queryKey: ['lessons'],
+    queryFn: () => base44.entities.Lesson.list(),
+  });
+
+  const getLessonCount = (moduleId) => {
+    return allLessons.filter(lesson => lesson.module_id === moduleId).length;
+  };
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <p className="text-purple-200">Verificando acesso...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+          Bem-vindo, {user.full_name?.split(' ')[0] || 'Aluno'}!
+        </h1>
+        <p className="text-lg text-purple-200 max-w-2xl mx-auto">
+          Explore os módulos de teoria musical e aprofunde seu conhecimento musical
+        </p>
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="bg-slate-800/50 border-purple-700/30">
+              <CardHeader>
+                <Skeleton className="h-12 w-12 rounded-xl mb-4" />
+                <Skeleton className="h-6 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-full" />
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {modules.map((module) => {
+            const Icon = iconMap[module.icon] || Music2;
+            const lessonCount = getLessonCount(module.id);
+            
+            return (
+              <Link
+                key={module.id}
+                to={createPageUrl('ModuleLessons') + `?moduleId=${module.id}`}
+              >
+                <Card className="bg-slate-800/50 backdrop-blur-sm border-purple-700/30 hover:border-purple-500/50 hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300 h-full group cursor-pointer">
+                  <CardHeader>
+                    <div className="bg-gradient-to-br from-purple-500 to-purple-700 p-3 rounded-xl w-fit mb-4 group-hover:scale-110 transition-transform">
+                      <Icon className="w-8 h-8 text-white" />
+                    </div>
+                    <CardTitle className="text-white group-hover:text-purple-300 transition-colors">
+                      {module.title}
+                    </CardTitle>
+                    <CardDescription className="text-purple-200">
+                      {module.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2 text-sm text-purple-300">
+                      <PlayCircle className="w-4 h-4" />
+                      <span>{lessonCount} {lessonCount === 1 ? 'aula' : 'aulas'}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {!isLoading && modules.length === 0 && (
+        <div className="text-center py-12">
+          <Music2 className="w-16 h-16 text-purple-400 mx-auto mb-4 opacity-50" />
+          <p className="text-purple-200 text-lg">Nenhum módulo disponível ainda.</p>
+          <p className="text-purple-300 text-sm mt-2">Em breve novos conteúdos serão adicionados!</p>
+        </div>
+      )}
+    </div>
+  );
+}
